@@ -97,3 +97,6 @@ add_test(NAME pcd_server_gpu_layers_invalid COMMAND pcd_server --gpu-layers 1x)
 add_test(NAME pcd_server_gpu_layers_missing COMMAND pcd_server --gpu-layers)
 set_tests_properties(pcd_server_gpu_layers_negative pcd_server_gpu_layers_invalid pcd_server_gpu_layers_missing
     PROPERTIES WILL_FAIL TRUE)
+
+add_test(NAME pcd_server_cpu_help COMMAND pcd_server --cpu --help)
+set_tests_properties(pcd_server_cpu_help PROPERTIES PASS_REGULAR_EXPRESSION "--cpu")

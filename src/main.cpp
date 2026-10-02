@@ -17,6 +17,7 @@ struct Config {
     std::filesystem::path model;
     std::size_t cache_entries{32};
     std::size_t cache_bytes{536870912};
+    bool cpu_only{false};
     int gpu_layers{-1};
 };
 
@@ -29,6 +30,7 @@ void usage(const char * argv0) {
               << "  --cache-entries N     default 32\n"
               << "  --cache-bytes BYTES   default 536870912\n"
               << "  --gpu-layers N        default -1 (all); 0 keeps weights on CPU\n"
+              << "  --cpu                 disable GPU weights, compute and KV offload\n"
               << "  --help\n";
 }
 
@@ -54,6 +56,8 @@ Config parse_args(int argc, char ** argv) {
             config.cache_entries = std::stoull(value(i, "--cache-entries"));
         } else if (arg == "--cache-bytes") {
             config.cache_bytes = std::stoull(value(i, "--cache-bytes"));
+        } else if (arg == "--cpu") {
+            config.cpu_only = true;
         } else if (arg == "--gpu-layers") {
             const auto text = value(i, "--gpu-layers");
             std::size_t consumed = 0;
@@ -109,6 +113,7 @@ int main(int argc, char ** argv) {
     options.cache.max_entries = config.cache_entries;
     options.cache.max_bytes = config.cache_bytes;
     options.runtime.gpu_layers = config.gpu_layers;
+    options.runtime.cpu_only = config.cpu_only;
     pcd::ModelManager manager(pcd::ModelCatalog(config.models_dir), options);
 
     if (std::filesystem::is_regular_file(config.model)) {

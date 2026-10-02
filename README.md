@@ -461,3 +461,5 @@ The UI assets under [`ui/`](ui/) are embedded into the executable at build time 
 ## License
 
 PCD Server is released under the [MIT License](LICENSE). It embeds llama.cpp, cpp-httplib, and nlohmann/json, all MIT-licensed; their notices are reproduced in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+`--cpu` also disables device compute and KV offload. It overrides `--gpu-layers`.

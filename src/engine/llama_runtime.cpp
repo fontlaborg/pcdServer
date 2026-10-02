@@ -67,7 +67,7 @@ LlamaRuntime::LlamaRuntime(RuntimeOptions options) : options_(std::move(options)
     }
 
     auto model_params = llama_model_default_params();
-    model_params.n_gpu_layers = options_.gpu_layers;
+    model_params.n_gpu_layers = options_.cpu_only ? 0 : options_.gpu_layers;
     model_ = llama_model_load_from_file(options_.model_path.string().c_str(), model_params);
     if (!model_) {
         throw NativeError("failed to load model");
@@ -83,8 +83,8 @@ LlamaRuntime::LlamaRuntime(RuntimeOptions options) : options_(std::move(options)
     ctx_params.n_threads_batch = options_.threads;
     ctx_params.flash_attn_type = LLAMA_FLASH_ATTN_TYPE_ENABLED;
     ctx_params.kv_unified = true;
-    ctx_params.offload_kqv = true;
-    ctx_params.op_offload = true;
+    ctx_params.offload_kqv = !options_.cpu_only;
+    ctx_params.op_offload = !options_.cpu_only;
     ctx_params.no_perf = true;
     ctx_ = llama_init_from_model(model_, ctx_params);
     if (!ctx_) {
@@ -208,6 +208,7 @@ std::string LlamaRuntime::model_fingerprint() const {
 }
 
 std::string LlamaRuntime::backend_name() const {
+    if (options_.cpu_only) { return "CPU"; }
     std::string name = "CPU";
     for (std::size_t i = 0; i < ggml_backend_dev_count(); ++i) {
         auto * dev = ggml_backend_dev_get(i);

@@ -24,6 +24,7 @@ struct RuntimeOptions {
     uint32_t max_sequences{64};
     uint32_t batch_size{2048};
     int32_t threads{0};  // 0 = derive from hardware concurrency
+    bool cpu_only{false};  // Disable device compute and KV offload too.
     int32_t gpu_layers{-1};  // -1 = all; 0 keeps weights on CPU for large models.
 };
 
