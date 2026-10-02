@@ -1,4 +1,5 @@
 #pragma once
+// this_file: include/pcd/llama_runtime.hpp
 #include <llama.h>
 
 #include <cstddef>
@@ -23,6 +24,7 @@ struct RuntimeOptions {
     uint32_t max_sequences{64};
     uint32_t batch_size{2048};
     int32_t threads{0};  // 0 = derive from hardware concurrency
+    int32_t gpu_layers{-1};  // -1 = all; 0 keeps weights on CPU for large models.
 };
 
 // Complete host-side copy of one sequence's state (attention KV plus any
@@ -44,6 +46,11 @@ struct ChatMessage {
     std::string role;
     std::string content;
 };
+
+// Model-native Jinja fallback for templates absent from llama.cpp's legacy set.
+std::string render_jinja_chat_template(const std::string & tmpl,
+                                      const std::vector<ChatMessage> & messages,
+                                      const llama_model * model = nullptr);
 
 // RAII owner of one llama model, context and reusable batch. Not thread-safe;
 // callers serialize access.

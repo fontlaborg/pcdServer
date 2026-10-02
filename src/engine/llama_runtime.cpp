@@ -1,5 +1,7 @@
 #include "pcd/llama_runtime.hpp"
+// this_file: src/engine/llama_runtime.cpp
 
+#include <chat.h>
 #include <ggml-backend.h>
 
 #include <algorithm>
@@ -8,6 +10,25 @@
 #include <thread>
 
 namespace pcd {
+
+std::string render_jinja_chat_template(const std::string & tmpl,
+                                      const std::vector<ChatMessage> & messages,
+                                      const llama_model * model) {
+    try {
+        auto templates = common_chat_templates_init(model, tmpl);
+        common_chat_templates_inputs inputs;
+        inputs.enable_thinking = false;
+        for (const auto & message : messages) {
+            common_chat_msg native;
+            native.role = message.role;
+            native.content = message.content;
+            inputs.messages.push_back(std::move(native));
+        }
+        return common_chat_templates_apply(templates.get(), inputs).prompt;
+    } catch (const std::exception & error) {
+        throw NativeError(std::string("chat template Jinja rendering failed: ") + error.what());
+    }
+}
 
 namespace {
 
@@ -46,7 +67,7 @@ LlamaRuntime::LlamaRuntime(RuntimeOptions options) : options_(std::move(options)
     }
 
     auto model_params = llama_model_default_params();
-    model_params.n_gpu_layers = -1;
+    model_params.n_gpu_layers = options_.gpu_layers;
     model_ = llama_model_load_from_file(options_.model_path.string().c_str(), model_params);
     if (!model_) {
         throw NativeError("failed to load model");
@@ -99,6 +120,11 @@ std::vector<llama_token> LlamaRuntime::tokenize(std::string_view text, bool add_
         }
     }
     tokens.resize(static_cast<std::size_t>(n));
+    // Jinja templates can already include the model's BOS token.
+    if (add_special && llama_vocab_get_add_bos(vocab_) && tokens.size() >= 2
+        && tokens[0] == llama_vocab_bos(vocab_) && tokens[1] == tokens[0]) {
+        tokens.erase(tokens.begin());
+    }
     return tokens;
 }
 
@@ -137,13 +163,13 @@ std::string LlamaRuntime::render_chat(const std::vector<ChatMessage> & messages)
     std::string out(2 * total + 256, '\0');
     auto n = llama_chat_apply_template(tmpl.empty() ? nullptr : tmpl.c_str(), native.data(), native.size(), true, out.data(), static_cast<int32_t>(out.size()));
     if (n < 0) {
-        throw NativeError("chat template is not supported by llama_chat_apply_template");
+        return render_jinja_chat_template(tmpl, messages, model_);
     }
     if (static_cast<std::size_t>(n) > out.size()) {
         out.resize(static_cast<std::size_t>(n));
         n = llama_chat_apply_template(tmpl.empty() ? nullptr : tmpl.c_str(), native.data(), native.size(), true, out.data(), static_cast<int32_t>(out.size()));
         if (n < 0) {
-            throw NativeError("chat template is not supported by llama_chat_apply_template");
+            return render_jinja_chat_template(tmpl, messages, model_);
         }
     }
     out.resize(static_cast<std::size_t>(n));

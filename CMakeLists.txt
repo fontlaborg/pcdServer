@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
+# this_file: CMakeLists.txt
 project(pcd_server VERSION 0.1.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -11,7 +12,9 @@ set(LLAMA_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(LLAMA_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(LLAMA_BUILD_SERVER OFF CACHE BOOL "" FORCE)
 set(LLAMA_BUILD_TOOLS OFF CACHE BOOL "" FORCE)
+set(LLAMA_BUILD_COMMON ON CACHE BOOL "" FORCE)
 set(LLAMA_CURL OFF CACHE BOOL "" FORCE)
+set(LLAMA_OPENSSL OFF CACHE BOOL "" FORCE)
 set(LLAMA_BUILD_IS_DEV OFF CACHE BOOL "" FORCE)
 
 FetchContent_Declare(llama_cpp GIT_REPOSITORY https://github.com/ggml-org/llama.cpp.git GIT_TAG v0.4.1 GIT_SHALLOW TRUE)
@@ -31,7 +34,7 @@ add_library(pcd_core STATIC
     src/model_manager.cpp
 )
 target_include_directories(pcd_core PUBLIC include)
-target_link_libraries(pcd_core PUBLIC llama nlohmann_json::nlohmann_json)
+target_link_libraries(pcd_core PUBLIC llama llama-common nlohmann_json::nlohmann_json)
 
 # Embeds every file under ui/ into the server binary; see cmake/embed_resource.cmake.
 function(pcd_embed_asset out_var file symbol)
@@ -86,3 +89,11 @@ add_test(NAME pcd_server_help COMMAND pcd_server --help)
 set_tests_properties(pcd_server_help PROPERTIES
     PASS_REGULAR_EXPRESSION "--port PORT           default 8090"
 )
+
+add_test(NAME pcd_server_gpu_layers_help COMMAND pcd_server --gpu-layers 0 --help)
+set_tests_properties(pcd_server_gpu_layers_help PROPERTIES PASS_REGULAR_EXPRESSION "--gpu-layers N")
+add_test(NAME pcd_server_gpu_layers_negative COMMAND pcd_server --gpu-layers -2)
+add_test(NAME pcd_server_gpu_layers_invalid COMMAND pcd_server --gpu-layers 1x)
+add_test(NAME pcd_server_gpu_layers_missing COMMAND pcd_server --gpu-layers)
+set_tests_properties(pcd_server_gpu_layers_negative pcd_server_gpu_layers_invalid pcd_server_gpu_layers_missing
+    PROPERTIES WILL_FAIL TRUE)

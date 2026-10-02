@@ -1,7 +1,27 @@
 #include <catch2/catch_test_macros.hpp>
+// this_file: tests/llama_runtime_test.cpp
 #include "pcd/llama_runtime.hpp"
 
 #include <cstdlib>
+
+TEST_CASE("Jinja renders templates outside the legacy builtin set", "[template]") {
+    const std::string tmpl =
+        "{% for message in messages %}[{{ message.role }}]{{ message.content }}"
+        "{% endfor %}{% if add_generation_prompt %}[assistant]{% endif %}";
+    REQUIRE(pcd::render_jinja_chat_template(tmpl, {{"system", "S"}, {"user", "U"}})
+            == "[system]S[user]U[assistant]");
+}
+
+TEST_CASE("Jinja fallback disables optional thinking", "[template]") {
+    const std::string tmpl =
+        "{% for message in messages %}{{ message.content }}{% endfor %}"
+        "{% if enable_thinking %}THINK{% else %}ANSWER{% endif %}";
+    REQUIRE(pcd::render_jinja_chat_template(tmpl, {{"user", "U"}}) == "UANSWER");
+}
+
+TEST_CASE("invalid Jinja fails with a native template error", "[template]") {
+    REQUIRE_THROWS_AS(pcd::render_jinja_chat_template("{% invalid %}", {{"user", "U"}}), pcd::NativeError);
+}
 
 namespace {
 const bool quiet_native_logs = (pcd::LlamaRuntime::quiet_logging(), true);
@@ -47,6 +67,12 @@ TEST_CASE("runtime exposes vocabulary, template and metadata", "[native]") {
     auto rendered = runtime.render_chat({{"system", "S"}, {"user", "U"}});
     REQUIRE(rendered.find("S") != std::string::npos);
     REQUIRE(rendered.find("U") != std::string::npos);
+    if (runtime.metadata("general.architecture").rfind("gemma4", 0) == 0) {
+        const auto prefixed = runtime.tokenize(rendered, true, true);
+        REQUIRE(prefixed.size() >= 2);
+        REQUIRE(runtime.token_to_piece(prefixed[0]) == "<bos>");
+        REQUIRE(runtime.token_to_piece(prefixed[1]) != "<bos>");
+    }
 }
 
 TEST_CASE("batch decode returns logits only where requested", "[native]") {

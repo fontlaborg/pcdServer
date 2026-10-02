@@ -1,4 +1,5 @@
 # Parallel Constrained Decoding (PCD) Server
+<!-- this_file: README.md -->
 
 **Turn text into guaranteed bounded JSON with a local GGUF model.**
 
@@ -42,7 +43,10 @@ PCD Server is a good fit for routing, triage, moderation, tagging, policy decisi
 - `curl` and `shasum` (included with macOS)
 - `jq` for the end-to-end script (`brew install jq`)
 
-llama.cpp offloads all model layers to Metal on an Apple Silicon Mac.
+llama.cpp offloads all model layers to Metal on an Apple Silicon Mac by default.
+Pass `--gpu-layers 0` to keep model weights on CPU, or a positive layer count
+for partial offload. This is useful when a large GGUF exceeds Metal's memory
+budget; it does not guarantee the model will fit in RAM.
 
 #### Linux
 
@@ -66,6 +70,12 @@ ctest --test-dir build --output-on-failure
 ```
 
 The first configure/build fetches pinned dependencies and compiles llama.cpp, so it can take a few minutes. The download script installs `Qwen3.5-0.8B-Q8_0.gguf` under `models/` and verifies its SHA-256 checksum.
+
+Model chat templates use llama.cpp's legacy renderer where supported, with its
+Jinja renderer as a fallback (including Gemma 4 templates). The fallback
+disables optional thinking and avoids adding a second beginning-of-sequence
+token when the rendered template already includes one. The build links the
+pinned llama.cpp common library for that renderer.
 
 When the server is ready:
 
